@@ -717,7 +717,7 @@
 
       <a href="<?= site_url('/') ?>" class="portal-brand">
         <div class="brand-icon">🚀</div>
-        App Portal
+        App Portal Askara
       </a>
 
       <!-- Search -->
@@ -728,7 +728,7 @@
           id="searchInput"
           class="search-input"
           placeholder="Cari aplikasi..."
-          value="<?= htmlspecialchars($search ?? '') ?>"
+          value="<?= htmlspecialchars($search ?: '') ?>"
           autocomplete="off"
         />
       </div>
