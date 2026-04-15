@@ -858,9 +858,7 @@
             <i class="bi bi-app-indicator text-info"></i>
             <strong><?= count($apps) ?></strong> aplikasi
           </span>
-          <?php $active_count = count(array_filter($apps, function ($a) {
-            $a->is_active;
-          })); ?>
+          <?php $active_count = count(array_filter($apps, $a->is_active)); ?>
           <span class="stat-pill">
             <i class="bi bi-circle-fill text-success" style="font-size:.55rem;"></i>
             <strong><?= $active_count ?></strong> aktif
