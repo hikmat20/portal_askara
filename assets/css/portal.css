@@ -21,6 +21,7 @@
       --shadow-card: 0 0 0 1px var(--border-color), 0 4px 24px rgba(0, 0, 0, .4);
       --shadow-hover: 0 0 0 1px var(--accent), 0 8px 32px rgba(88, 166, 255, .15);
       --transition: all .2s cubic-bezier(.4, 0, .2, 1);
+      --bg-overlay: linear-gradient(rgba(13, 17, 23, 0.8), rgba(13, 17, 23, 0.8));
   }
 
   /* Light mode variables */
@@ -40,6 +41,7 @@
       --accent-orange: #fbbc04;
       --shadow-card: 0 0 0 1px var(--border-color), 0 4px 24px rgba(0, 0, 0, .1);
       --shadow-hover: 0 0 0 1px var(--accent), 0 8px 32px rgba(26, 115, 232, .15);
+      --bg-overlay: linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8));
   }
 
   *,
@@ -55,6 +57,7 @@
       font-family: 'Plus Jakarta Sans', sans-serif;
       min-height: 100vh;
       background-image:
+          var(--bg-overlay),
           url('https://img.freepik.com/premium-psd/blue-curve-frame-template-glittery-background_53876-142647.jpg'),
           radial-gradient(circle at 15% 15%, rgba(88, 166, 255, .15), transparent 18%),
           radial-gradient(circle at 85% 25%, rgba(63, 185, 80, .10), transparent 16%);
