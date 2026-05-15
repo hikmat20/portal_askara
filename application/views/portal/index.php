@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>App Portal</title>
+  <title>ISO Platform Askara Group</title>
+  <link rel="icon" type="image/png" href="assets/portal-icon.png" />
 
   <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
@@ -24,8 +25,8 @@
     <div class="container-xl">
       <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
         <a href="<?= site_url('/') ?>" class="portal-brand">
-          <div class="brand-icon">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/ISO_Logo_%28Red_square%29.svg/1280px-ISO_Logo_%28Red_square%29.svg.png" alt="logo_portal" width="40" height="40" />
+          <div class="brand-icon overflow-hidden">
+            <img src="<?= base_url('assets/portal-icon.png') ?>" alt="logo_portal" width="40" height="40" />
           </div>
           ISO Platform Askara Group
         </a>
