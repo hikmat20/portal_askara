@@ -23,10 +23,11 @@
   <nav class="portal-navbar">
     <div class="container-xl">
       <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-
         <a href="<?= site_url('/') ?>" class="portal-brand">
-          <div class="brand-icon">🚀</div>
-          App Portal Askara
+          <div class="brand-icon">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/ISO_Logo_%28Red_square%29.svg/1280px-ISO_Logo_%28Red_square%29.svg.png" alt="logo_portal" width="40" height="40" />
+          </div>
+          ISO Platform Askara Group
         </a>
 
         <!-- Search -->
