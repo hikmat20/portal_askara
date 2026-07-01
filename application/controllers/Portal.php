@@ -6,8 +6,33 @@ class Portal extends CI_Controller {
     public function __construct() {
         parent::__construct();
         $this->load->model('App_model');
+        $this->load->model('User_model');
         $this->load->helper(['url', 'form']);
         $this->load->library(['session', 'upload']);
+    }
+
+    // -------------------------------------------------------
+    // AUTH HELPER
+    // -------------------------------------------------------
+    private function is_logged_in() {
+        return $this->session->userdata('logged_in') === true;
+    }
+
+    private function require_login() {
+        if (!$this->is_logged_in()) {
+            if ($this->input->is_ajax_request()) {
+                return $this->output
+                    ->set_content_type('application/json')
+                    ->set_output(json_encode([
+                        'status' => false,
+                        'message' => 'Silakan login terlebih dahulu.',
+                        'require_login' => true,
+                    ]));
+            }
+            $this->session->set_flashdata('error', 'Silakan login terlebih dahulu.');
+            redirect(site_url('/'));
+        }
+        return true;
     }
 
     // -------------------------------------------------------
@@ -21,8 +46,182 @@ class Portal extends CI_Controller {
         $data['categories'] = $this->App_model->get_categories();
         $data['search']     = $search;
         $data['category']   = $category;
+        $data['logged_in']  = $this->is_logged_in();
+        $data['current_user'] = $this->session->userdata('username');
 
         $this->load->view('portal/index', $data);
+    }
+
+    // -------------------------------------------------------
+    // LOGIN
+    // -------------------------------------------------------
+    public function login() {
+        if ($this->input->server('REQUEST_METHOD') !== 'POST') {
+            redirect('/');
+        }
+
+        $username = $this->input->post('username', TRUE);
+        $password = $this->input->post('password');
+
+        $user = $this->User_model->login($username, $password);
+
+        if ($user) {
+            $this->session->set_userdata([
+                'logged_in'  => true,
+                'user_id'    => $user->id,
+                'username'   => $user->username,
+                'full_name'  => $user->full_name,
+            ]);
+
+            if ($this->input->is_ajax_request()) {
+                return $this->output
+                    ->set_content_type('application/json')
+                    ->set_output(json_encode([
+                        'status' => true,
+                        'message' => 'Login berhasil! Selamat datang, ' . $user->full_name,
+                    ]));
+            }
+            $this->session->set_flashdata('success', 'Login berhasil!');
+        } else {
+            if ($this->input->is_ajax_request()) {
+                return $this->output
+                    ->set_content_type('application/json')
+                    ->set_output(json_encode([
+                        'status' => false,
+                        'message' => 'Username atau password salah.',
+                    ]));
+            }
+            $this->session->set_flashdata('error', 'Username atau password salah.');
+        }
+
+        redirect(site_url('/'));
+    }
+
+    // -------------------------------------------------------
+    // LOGOUT
+    // -------------------------------------------------------
+    public function logout() {
+        $this->session->unset_userdata(['logged_in', 'user_id', 'username', 'full_name']);
+        $this->session->set_flashdata('success', 'Berhasil logout.');
+        redirect(site_url('/'));
+    }
+
+    // -------------------------------------------------------
+    // USERS MANAGEMENT
+    // -------------------------------------------------------
+    public function users() {
+        if ($this->require_login() !== true) return;
+
+        $data['users']        = $this->User_model->get_all();
+        $data['logged_in']    = true;
+        $data['current_user'] = $this->session->userdata('username');
+        $this->load->view('portal/users', $data);
+    }
+
+    public function user_store() {
+        if ($this->require_login() !== true) return;
+
+        $username  = $this->input->post('username', TRUE);
+        $full_name = $this->input->post('full_name', TRUE);
+        $password  = $this->input->post('password');
+
+        if (empty($username) || empty($password)) {
+            if ($this->input->is_ajax_request()) {
+                return $this->output->set_content_type('application/json')
+                    ->set_output(json_encode(['status' => false, 'message' => 'Username dan password wajib diisi.']));
+            }
+            $this->session->set_flashdata('error', 'Username dan password wajib diisi.');
+            redirect(site_url('index.php/users'));
+        }
+
+        if ($this->User_model->username_exists($username)) {
+            if ($this->input->is_ajax_request()) {
+                return $this->output->set_content_type('application/json')
+                    ->set_output(json_encode(['status' => false, 'message' => 'Username sudah digunakan.']));
+            }
+            $this->session->set_flashdata('error', 'Username sudah digunakan.');
+            redirect(site_url('index.php/users'));
+        }
+
+        $this->User_model->insert([
+            'username'  => $username,
+            'full_name' => $full_name ?: $username,
+            'password'  => $password,
+        ]);
+
+        if ($this->input->is_ajax_request()) {
+            return $this->output->set_content_type('application/json')
+                ->set_output(json_encode(['status' => true, 'message' => 'User berhasil ditambahkan!', 'redirect' => site_url('index.php/users')]));
+        }
+        $this->session->set_flashdata('success', 'User berhasil ditambahkan!');
+        redirect(site_url('index.php/users'));
+    }
+
+    public function user_update() {
+        if ($this->require_login() !== true) return;
+
+        $id        = (int)$this->input->post('id');
+        $username  = $this->input->post('username', TRUE);
+        $full_name = $this->input->post('full_name', TRUE);
+        $password  = $this->input->post('password');
+
+        if (empty($username)) {
+            if ($this->input->is_ajax_request()) {
+                return $this->output->set_content_type('application/json')
+                    ->set_output(json_encode(['status' => false, 'message' => 'Username wajib diisi.']));
+            }
+            $this->session->set_flashdata('error', 'Username wajib diisi.');
+            redirect(site_url('index.php/users'));
+        }
+
+        if ($this->User_model->username_exists($username, $id)) {
+            if ($this->input->is_ajax_request()) {
+                return $this->output->set_content_type('application/json')
+                    ->set_output(json_encode(['status' => false, 'message' => 'Username sudah digunakan.']));
+            }
+            $this->session->set_flashdata('error', 'Username sudah digunakan.');
+            redirect(site_url('index.php/users'));
+        }
+
+        $data = [
+            'username'  => $username,
+            'full_name' => $full_name ?: $username,
+            'password'  => $password,
+        ];
+
+        $this->User_model->update($id, $data);
+
+        if ($this->input->is_ajax_request()) {
+            return $this->output->set_content_type('application/json')
+                ->set_output(json_encode(['status' => true, 'message' => 'User berhasil diperbarui!', 'redirect' => site_url('index.php/users')]));
+        }
+        $this->session->set_flashdata('success', 'User berhasil diperbarui!');
+        redirect(site_url('index.php/users'));
+    }
+
+    public function user_delete() {
+        if ($this->require_login() !== true) return;
+
+        $id = (int)$this->input->post('id');
+
+        // Jangan hapus diri sendiri
+        if ($id == $this->session->userdata('user_id')) {
+            if ($this->input->is_ajax_request()) {
+                return $this->output->set_content_type('application/json')
+                    ->set_output(json_encode(['status' => false, 'message' => 'Tidak bisa menghapus akun sendiri.']));
+            }
+            $this->session->set_flashdata('error', 'Tidak bisa menghapus akun sendiri.');
+            redirect(site_url('index.php/users'));
+        }
+
+        $this->User_model->delete($id);
+
+        if ($this->input->is_ajax_request()) {
+            return $this->output->set_content_type('application/json')
+                ->set_output(json_encode(['status' => true, 'message' => 'User berhasil dihapus!', 'redirect' => site_url('index.php/users')]));
+        }
+        $this->session->set_flashdata('success', 'User berhasil dihapus!');
+        redirect(site_url('index.php/users'));
     }
 
     // -------------------------------------------------------
@@ -35,6 +234,7 @@ class Portal extends CI_Controller {
 
         $q = $this->input->get('q');
         $apps = $this->App_model->get_all($q);
+        $logged_in = $this->is_logged_in();
 
         $html = '';
         if (!empty($apps)) {
@@ -49,10 +249,13 @@ class Portal extends CI_Controller {
                 
                 $html .= '<div style="position:relative;">';
                 $html .= '<a href="' . htmlspecialchars($app->url) . '" target="_blank" rel="noopener noreferrer" class="app-card ' . ($app->is_active ? '' : 'inactive') . '" style="--card-accent: ' . htmlspecialchars($accent_color) . ';">';
-                $html .= '<div class="card-actions" onclick="event.preventDefault();event.stopPropagation();">';
-                $html .= '<button class="card-action-btn btn-edit" onclick="openEditModal(' . $json_app . ')"><i class="bi bi-pencil"></i></button>';
-                $html .= '<button class="card-action-btn btn-delete" onclick="openDeleteModal(' . $app->id . ', \'' . addslashes($app->name) . '\')"><i class="bi bi-trash"></i></button>';
-                $html .= '</div>';
+                
+                if ($logged_in) {
+                    $html .= '<div class="card-actions" onclick="event.preventDefault();event.stopPropagation();">';
+                    $html .= '<button class="card-action-btn btn-edit" onclick="openEditModal(' . $json_app . ')"><i class="bi bi-pencil"></i></button>';
+                    $html .= '<button class="card-action-btn btn-delete" onclick="openDeleteModal(' . $app->id . ', \'' . addslashes($app->name) . '\')"><i class="bi bi-trash"></i></button>';
+                    $html .= '</div>';
+                }
                 
                 if ($app->logo && file_exists(FCPATH . $app->logo)) {
                     $html .= '<div class="app-logo-wrap"><img src="' . base_url($app->logo) . '" alt="' . htmlspecialchars($app->name) . '" /></div>';
@@ -65,11 +268,13 @@ class Portal extends CI_Controller {
                 $html .= '<div class="app-meta"><span class="app-category-badge">' . htmlspecialchars($app->category) . '</span></div></a></div>';
             }
             
-            // Add the "Tambah Aplikasi" button at the end
-            $html .= '<div class="add-card" role="button" data-bs-toggle="modal" data-bs-target="#modalApp" onclick="resetModalForCreate()">';
-            $html .= '<div class="add-card-icon"><i class="bi bi-plus-lg"></i></div>';
-            $html .= '<div>Tambah Aplikasi</div>';
-            $html .= '</div>';
+            // Add the "Tambah Aplikasi" button at the end (only if logged in)
+            if ($logged_in) {
+                $html .= '<div class="add-card" role="button" data-bs-toggle="modal" data-bs-target="#modalApp" onclick="resetModalForCreate()">';
+                $html .= '<div class="add-card-icon"><i class="bi bi-plus-lg"></i></div>';
+                $html .= '<div>Tambah Aplikasi</div>';
+                $html .= '</div>';
+            }
         } else {
             $html = '<div class="empty-state" style="grid-column: 1/-1;"><i class="bi bi-search d-block" style="font-size:3rem;margin-bottom:16px;opacity:.4;"></i><h5>Tidak ada hasil</h5><p>Coba kata kunci lain.</p></div>';
         }
@@ -85,7 +290,8 @@ class Portal extends CI_Controller {
     // STORE (Create)
     // -------------------------------------------------------
     public function store() {
-      
+        if ($this->require_login() !== true) return;
+
         if ($this->input->server('REQUEST_METHOD') !== 'POST') {
             redirect('/');
         }
@@ -150,9 +356,7 @@ class Portal extends CI_Controller {
     // UPDATE (Edit)
     // -------------------------------------------------------
     public function update() {
-        // if ($this->input->server('REQUEST_METHOD') !== 'POST') {
-        //     redirect('/');
-        // }
+        if ($this->require_login() !== true) return;
 
         $id  = (int)$this->input->post('id');
         $app = $this->App_model->get_by_id($id);
@@ -231,6 +435,8 @@ class Portal extends CI_Controller {
     // DELETE
     // -------------------------------------------------------
     public function delete() {
+        if ($this->require_login() !== true) return;
+
         $id  = (int)$this->input->post('id');
         $app = $this->App_model->get_by_id($id);
 
@@ -251,6 +457,8 @@ class Portal extends CI_Controller {
     // TOGGLE ACTIVE
     // -------------------------------------------------------
     public function toggle() {
+        if ($this->require_login() !== true) return;
+
         $id = (int)$this->input->post('id');
         $this->App_model->toggle_active($id);
         redirect(site_url('/'));

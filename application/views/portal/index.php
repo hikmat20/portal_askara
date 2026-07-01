@@ -45,6 +45,23 @@
 
         <!-- Theme Toggle -->
         <div class="d-flex align-items-center gap-2">
+          <?php if (!empty($logged_in)): ?>
+            <a href="<?= site_url('index.php/users') ?>" class="btn btn-sm" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" title="Kelola User">
+              <i class="bi bi-people-fill"></i>
+            </a>
+            <div class="dropdown">
+              <button class="btn btn-sm dropdown-toggle" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" data-bs-toggle="dropdown" title="<?= htmlspecialchars($current_user) ?>">
+                <i class="bi bi-person-circle me-1"></i><?= htmlspecialchars($current_user) ?>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="<?= site_url('index.php/auth/logout') ?>"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+              </ul>
+            </div>
+          <?php else: ?>
+            <button class="btn btn-sm" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" data-bs-toggle="modal" data-bs-target="#modalLogin" title="Admin Login">
+              <i class="bi bi-box-arrow-in-right me-1"></i>Login
+            </button>
+          <?php endif; ?>
           <button id="themeToggle" class="btn btn-sm" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" title="Dark Mode">
             <i class="bi bi-moon-fill" id="themeIcon"></i>
           </button>
@@ -110,7 +127,8 @@
               rel="noopener noreferrer"
               class="app-card <?= $app->is_active ? '' : 'inactive' ?>"
               style="--card-accent: <?= htmlspecialchars($accent_color) ?>;">
-              <!-- Action Buttons -->
+              <!-- Action Buttons (hanya tampil jika login) -->
+              <?php if (!empty($logged_in)): ?>
               <div class="card-actions" onclick="event.preventDefault();event.stopPropagation();">
                 <button
                   class="card-action-btn btn-edit"
@@ -125,6 +143,7 @@
                   <i class="bi bi-trash"></i>
                 </button>
               </div>
+              <?php endif; ?>
 
               <!-- Logo -->
               <?php if ($app->logo && file_exists(FCPATH . $app->logo)): ?>
@@ -151,13 +170,15 @@
 
         <?php endforeach; ?>
 
-        <!-- Add app card at the end of the grid -->
+        <!-- Add app card (hanya tampil jika login) -->
+        <?php if (!empty($logged_in)): ?>
         <div class="add-card" role="button" data-bs-toggle="modal" data-bs-target="#modalApp" onclick="resetModalForCreate()">
           <div class="add-card-icon">
             <i class="bi bi-plus-lg"></i>
           </div>
           <div>Tambah Aplikasi</div>
         </div>
+        <?php endif; ?>
       </div>
 
     <?php else: ?>
@@ -165,9 +186,13 @@
         <i class="bi bi-grid-3x3-gap d-block"></i>
         <h5>Belum ada aplikasi</h5>
         <p class="mb-4">Mulai tambahkan aplikasi ke portal Anda.</p>
+        <?php if (!empty($logged_in)): ?>
         <button class="btn-primary-custom" data-bs-toggle="modal" data-bs-target="#modalApp">
           <i class="bi bi-plus-lg me-2"></i>Tambah Aplikasi Pertama
         </button>
+        <?php else: ?>
+        <p class="text-muted">Login sebagai admin untuk mengelola aplikasi.</p>
+        <?php endif; ?>
       </div>
     <?php endif; ?>
 
@@ -319,6 +344,41 @@
             </button>
           </form>
         </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- =======================================
+     MODAL — LOGIN
+======================================= -->
+  <div class="modal fade" id="modalLogin" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-shield-lock me-2 text-info"></i>Admin Login</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="loginForm" method="POST" action="<?= site_url('index.php/auth/login') ?>">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label" for="loginUsername">Username</label>
+              <input type="text" id="loginUsername" name="username" class="form-control" placeholder="Username" required autocomplete="username" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="loginPassword">Password</label>
+              <input type="password" id="loginPassword" name="password" class="form-control" placeholder="Password" required autocomplete="current-password" />
+            </div>
+            <div id="loginError" class="text-danger small" style="display:none;"></div>
+          </div>
+          <div class="modal-footer gap-2">
+            <button type="button" class="btn-ghost" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" class="btn-primary-custom" id="btnLogin">
+              <i class="bi bi-box-arrow-in-right me-1"></i>
+              <span id="btnLoginText">Login</span>
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -576,6 +636,65 @@
         }
       }, 300); // Debounce 300ms
     });
+
+    // ============================================
+    // AJAX LOGIN
+    // ============================================
+    document.getElementById('loginForm').addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const btn = document.getElementById('btnLogin');
+      const btnText = document.getElementById('btnLoginText');
+      const errorDiv = document.getElementById('loginError');
+      const originalText = btnText.textContent;
+
+      btn.disabled = true;
+      btnText.textContent = 'Memproses...';
+      errorDiv.style.display = 'none';
+
+      const formData = new FormData(form);
+
+      try {
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const data = await response.json();
+
+        if (data.status) {
+          showToast(data.message || 'Login berhasil!', 'success');
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          errorDiv.textContent = data.message || 'Login gagal.';
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = 'Terjadi kesalahan.';
+        errorDiv.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btnText.textContent = originalText;
+      }
+    });
+
+    // ============================================
+    // AJAX SUBMIT — handle require_login response
+    // ============================================
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+      const response = await originalFetch.apply(this, args);
+      // Clone so we can read it again later
+      const clone = response.clone();
+      try {
+        const data = await clone.json();
+        if (data && data.require_login) {
+          showToast(data.message || 'Silakan login terlebih dahulu.', 'error');
+          new bootstrap.Modal(document.getElementById('modalLogin')).show();
+        }
+      } catch(e) { /* not json, ignore */ }
+      return response;
+    };
 
     // ============================================
     // DARK MODE / LIGHT MODE TOGGLE
