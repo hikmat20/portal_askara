@@ -13,3 +13,13 @@ $route['apps/toggle']   = 'Portal/toggle';
 $route['apps/test']     = 'Portal/test';
 $route['search_ajax']   = 'Portal/search_ajax';
 $route['portal']        = 'Portal/index';
+
+// Auth Routes
+$route['auth/login']    = 'Portal/login';
+$route['auth/logout']   = 'Portal/logout';
+
+// User Management Routes
+$route['users']         = 'Portal/users';
+$route['users/store']   = 'Portal/user_store';
+$route['users/update']  = 'Portal/user_update';
+$route['users/delete']  = 'Portal/user_delete';
