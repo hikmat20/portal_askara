@@ -29,6 +29,12 @@
           <a href="<?= site_url('/') ?>" class="btn btn-sm" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" title="Kembali ke Portal">
             <i class="bi bi-arrow-left me-1"></i>Portal
           </a>
+          <a href="<?= site_url('index.php/analytics') ?>" class="btn btn-sm" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" title="Statistik Login">
+            <i class="bi bi-bar-chart-line-fill me-1 text-info"></i><span class="d-none d-sm-inline">Statistik</span>
+          </a>
+          <a href="<?= site_url('index.php/api_settings') ?>" class="btn btn-sm" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" title="Pengaturan Link API">
+            <i class="bi bi-link-45deg me-1 text-success"></i><span class="d-none d-sm-inline">Link API</span>
+          </a>
           <div class="dropdown">
             <button class="btn btn-sm dropdown-toggle" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" data-bs-toggle="dropdown">
               <i class="bi bi-person-circle me-1"></i><?= htmlspecialchars($current_user) ?>

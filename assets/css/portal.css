@@ -793,3 +793,180 @@
           font-size: 1.5rem;
       }
   }
+
+  /* ==========================================
+       LOGIN COUNTER & ANALYTICS (ADMIN ONLY)
+    ========================================== */
+  .card-action-btn.btn-stats {
+      background: rgba(63, 185, 80, .15);
+      color: var(--accent-green);
+  }
+
+  .card-action-btn.btn-stats:hover {
+      background: rgba(63, 185, 80, .3);
+  }
+
+  .app-login-counter {
+      margin-top: 10px;
+      width: 100%;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      font-size: .72rem;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: var(--transition);
+      cursor: pointer;
+  }
+
+  .app-login-counter i {
+      color: var(--accent);
+      font-size: .8rem;
+  }
+
+  .app-login-counter strong {
+      color: var(--text-primary);
+      font-weight: 700;
+  }
+
+  .app-login-counter .counter-sep {
+      opacity: .5;
+  }
+
+  .app-login-counter:hover {
+      border-color: var(--accent);
+      background: rgba(88, 166, 255, .1);
+      color: var(--text-primary);
+  }
+
+  .stats-metric-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      height: 100%;
+  }
+
+  .stats-metric-label {
+      font-size: .75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+  }
+
+  .stats-metric-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.2;
+  }
+
+  .stats-metric-sub {
+      font-size: .76rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+  }
+
+  .period-filter-group {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      background: var(--bg-elevated);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+  }
+
+  .period-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: .8rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 8px;
+      transition: var(--transition);
+      text-decoration: none;
+      cursor: pointer;
+  }
+
+  .period-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover);
+  }
+
+  .period-btn.active {
+      background: var(--accent);
+      color: #0d1117;
+  }
+
+  [data-bs-theme="light"] .period-btn.active {
+      color: #ffffff;
+  }
+
+  .analytics-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+  }
+
+  .chart-container-box {
+      position: relative;
+      height: 290px;
+      width: 100%;
+  }
+
+  .analytics-nav-tabs .nav-link {
+      color: var(--text-secondary);
+      font-size: .85rem;
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 7px 14px;
+      border: 1px solid transparent;
+  }
+
+  .analytics-nav-tabs .nav-link.active {
+      background: var(--bg-elevated);
+      color: var(--accent);
+      border-color: var(--border-color);
+  }
+
+  .analytics-table {
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text-primary);
+      --bs-table-border-color: var(--border-color);
+      --bs-table-hover-bg: var(--bg-hover);
+      font-size: .85rem;
+  }
+
+  .analytics-table thead th {
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      font-weight: 700;
+      font-size: .76rem;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+  }
+
+  .code-snippet-box {
+      background: var(--bg-body);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: .78rem;
+      color: var(--text-primary);
+      overflow-x: auto;
+      margin: 0;
+  }

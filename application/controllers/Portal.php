@@ -7,6 +7,7 @@ class Portal extends CI_Controller {
         parent::__construct();
         $this->load->model('App_model');
         $this->load->model('User_model');
+        $this->load->model('Login_log_model');
         $this->load->helper(['url', 'form']);
         $this->load->library(['session', 'upload']);
     }
@@ -39,15 +40,18 @@ class Portal extends CI_Controller {
     // INDEX
     // -------------------------------------------------------
     public function index() {
-        $search   = $this->input->get('q');
-        $category = $this->input->get('cat');
+        $search    = $this->input->get('q', TRUE);
+        $category  = $this->input->get('cat', TRUE);
+        $logged_in = $this->is_logged_in();
 
-        $data['apps']       = $this->App_model->get_all($search, $category);
-        $data['categories'] = $this->App_model->get_categories();
-        $data['search']     = $search;
-        $data['category']   = $category;
-        $data['logged_in']  = $this->is_logged_in();
-        $data['current_user'] = $this->session->userdata('username');
+        $data['apps']           = $this->App_model->get_all($search, $category);
+        $data['categories']     = $this->App_model->get_categories();
+        $data['search']         = $search;
+        $data['category']       = $category;
+        $data['logged_in']      = $logged_in;
+        $data['current_user']   = $this->session->userdata('username');
+        $data['app_counters']   = $logged_in ? $this->Login_log_model->get_counters_by_app() : [];
+        $data['portal_summary'] = $logged_in ? $this->Login_log_model->get_summary() : null;
 
         $this->load->view('portal/index', $data);
     }
@@ -232,9 +236,10 @@ class Portal extends CI_Controller {
             return;
         }
 
-        $q = $this->input->get('q');
+        $q = $this->input->get('q', TRUE);
         $apps = $this->App_model->get_all($q);
         $logged_in = $this->is_logged_in();
+        $app_counters = $logged_in ? $this->Login_log_model->get_counters_by_app() : [];
 
         $html = '';
         if (!empty($apps)) {
@@ -245,15 +250,17 @@ class Portal extends CI_Controller {
                     $initials = strtoupper(mb_substr($parts[0], 0, 1) . mb_substr($parts[1], 0, 1));
                 }
                 $accent_color = $app->color ?: '#58a6ff';
-                $json_app = json_encode($app);
+                $json_app = htmlspecialchars(json_encode($app), ENT_QUOTES, 'UTF-8');
+                $app_name_js = htmlspecialchars(json_encode($app->name), ENT_QUOTES, 'UTF-8');
                 
                 $html .= '<div style="position:relative;">';
                 $html .= '<a href="' . htmlspecialchars($app->url) . '" target="_blank" rel="noopener noreferrer" class="app-card ' . ($app->is_active ? '' : 'inactive') . '" style="--card-accent: ' . htmlspecialchars($accent_color) . ';">';
                 
                 if ($logged_in) {
                     $html .= '<div class="card-actions" onclick="event.preventDefault();event.stopPropagation();">';
-                    $html .= '<button class="card-action-btn btn-edit" onclick="openEditModal(' . $json_app . ')"><i class="bi bi-pencil"></i></button>';
-                    $html .= '<button class="card-action-btn btn-delete" onclick="openDeleteModal(' . $app->id . ', \'' . addslashes($app->name) . '\')"><i class="bi bi-trash"></i></button>';
+                    $html .= '<button class="card-action-btn btn-stats" title="Statistik Login" onclick="openStatsModal(' . (int)$app->id . ', ' . $app_name_js . ')"><i class="bi bi-bar-chart-line"></i></button>';
+                    $html .= '<button class="card-action-btn btn-edit" title="Edit" onclick="openEditModal(' . $json_app . ')"><i class="bi bi-pencil"></i></button>';
+                    $html .= '<button class="card-action-btn btn-delete" title="Hapus" onclick="openDeleteModal(' . (int)$app->id . ', ' . $app_name_js . ')"><i class="bi bi-trash"></i></button>';
                     $html .= '</div>';
                 }
                 
@@ -265,7 +272,24 @@ class Portal extends CI_Controller {
                 
                 $html .= '<h6 class="app-name">' . htmlspecialchars($app->name) . '</h6>';
                 $html .= '<p class="app-desc">' . htmlspecialchars($app->description ?: '—') . '</p>';
-                $html .= '<div class="app-meta"><span class="app-category-badge">' . htmlspecialchars($app->category) . '</span></div></a></div>';
+                $html .= '<div class="app-meta"><span class="app-category-badge">' . htmlspecialchars($app->category) . '</span></div>';
+
+                if ($logged_in) {
+                    $cnt = isset($app_counters[(int)$app->id]) ? $app_counters[(int)$app->id] : null;
+                    $w = $cnt ? (int)$cnt->week_count : 0;
+                    $m = $cnt ? (int)$cnt->month_count : 0;
+                    $y = $cnt ? (int)$cnt->year_count : 0;
+                    $html .= '<div class="app-login-counter" title="Lihat statistik & grafik login per user" onclick="event.preventDefault();event.stopPropagation();openStatsModal(' . (int)$app->id . ', ' . $app_name_js . ');">';
+                    $html .= '<i class="bi bi-bar-chart-line-fill"></i>';
+                    $html .= '<span>M: <strong>' . number_format($w, 0, ',', '.') . '</strong></span>';
+                    $html .= '<span class="counter-sep">&middot;</span>';
+                    $html .= '<span>B: <strong>' . number_format($m, 0, ',', '.') . '</strong></span>';
+                    $html .= '<span class="counter-sep">&middot;</span>';
+                    $html .= '<span>T: <strong>' . number_format($y, 0, ',', '.') . '</strong></span>';
+                    $html .= '</div>';
+                }
+
+                $html .= '</a></div>';
             }
             
             // Add the "Tambah Aplikasi" button at the end (only if logged in)
@@ -279,11 +303,13 @@ class Portal extends CI_Controller {
             $html = '<div class="empty-state" style="grid-column: 1/-1;"><i class="bi bi-search d-block" style="font-size:3rem;margin-bottom:16px;opacity:.4;"></i><h5>Tidak ada hasil</h5><p>Coba kata kunci lain.</p></div>';
         }
 
-        echo json_encode([
-            'status' => true,
-            'html' => $html,
-            'count' => count($apps)
-        ]);
+        return $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'status' => true,
+                'html' => $html,
+                'count' => count($apps)
+            ]));
     }
 
     // -------------------------------------------------------
@@ -325,9 +351,14 @@ class Portal extends CI_Controller {
             }
         }
 
+        $name = $this->input->post('name', TRUE);
+        $url = $this->input->post('url', TRUE);
+        $custom_code = $this->input->post('app_code', TRUE);
+
         $data = [
-            'name'        => $this->input->post('name', TRUE),
-            'url'         => $this->input->post('url', TRUE),
+            'name'        => $name,
+            'app_code'    => $this->App_model->generate_app_code($name, $url, $custom_code),
+            'url'         => $url,
             'description' => $this->input->post('description', TRUE),
             'color'       => $this->input->post('color', TRUE) ?: '#6366f1',
             'category'    => $this->input->post('category', TRUE) ?: 'General',
@@ -405,9 +436,14 @@ class Portal extends CI_Controller {
             $logo_path = null;
         }
 
+        $name = $this->input->post('name', TRUE);
+        $url = $this->input->post('url', TRUE);
+        $custom_code = $this->input->post('app_code', TRUE);
+
         $data = [
-            'name'        => $this->input->post('name', TRUE),
-            'url'         => $this->input->post('url', TRUE),
+            'name'        => $name,
+            'app_code'    => $this->App_model->generate_app_code($name, $url, $custom_code),
+            'url'         => $url,
             'description' => $this->input->post('description', TRUE),
             'color'       => $this->input->post('color', TRUE) ?: '#6366f1',
             'category'    => $this->input->post('category', TRUE) ?: 'General',
@@ -462,6 +498,259 @@ class Portal extends CI_Controller {
         $id = (int)$this->input->post('id');
         $this->App_model->toggle_active($id);
         redirect(site_url('/'));
+    }
+
+    // -------------------------------------------------------
+    // LOGIN COUNTER & ANALYTICS (API + ADMIN VIEWS)
+    // -------------------------------------------------------
+    public function api_log_login() {
+        if ($this->input->server('REQUEST_METHOD') !== 'POST') {
+            return $this->output
+                ->set_status_header(405)
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'status'  => false,
+                    'message' => 'Method not allowed. Gunakan POST.',
+                ]));
+        }
+
+        $api_settings = $this->Login_log_model->get_api_settings();
+        if ($api_settings->api_enabled !== '1') {
+            return $this->output
+                ->set_status_header(403)
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'status'  => false,
+                    'message' => 'API pencatatan login sedang dinonaktifkan.',
+                ]));
+        }
+
+        $raw = $this->input->raw_input_stream;
+        $json = !empty($raw) ? json_decode($raw, true) : null;
+        $payload = is_array($json) ? $json : $this->input->post(NULL, TRUE);
+
+        $expected_key = $api_settings->api_key;
+        $provided_key = $this->input->get_request_header('X-API-KEY', TRUE);
+        if (empty($provided_key) && isset($payload['api_key'])) {
+            $provided_key = $payload['api_key'];
+        }
+
+        $remote_ip = $this->input->ip_address();
+        $is_local = in_array($remote_ip, ['127.0.0.1', '::1'], true);
+
+        if (!empty($provided_key) && !hash_equals($expected_key, (string)$provided_key)) {
+            return $this->output
+                ->set_status_header(401)
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'status'  => false,
+                    'message' => 'API key tidak valid.',
+                ]));
+        }
+
+        if (empty($provided_key) && !$is_local) {
+            return $this->output
+                ->set_status_header(401)
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'status'  => false,
+                    'message' => 'Diperlukan header X-API-KEY.',
+                ]));
+        }
+
+        if (!empty($payload['ping_only'])) {
+            return $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'status'  => true,
+                    'message' => 'Koneksi API Portal valid dan siap menerima log login.',
+                ]));
+        }
+
+        $app_id     = isset($payload['app_id']) ? (int)$payload['app_id'] : 0;
+        $app_code   = isset($payload['app_code']) ? trim((string)$payload['app_code']) : '';
+        $user_id    = isset($payload['user_id']) ? trim((string)$payload['user_id']) : null;
+        $username   = isset($payload['username']) ? trim((string)$payload['username']) : '';
+        $full_name  = isset($payload['full_name']) ? trim((string)$payload['full_name']) : $username;
+        $ip_address = !empty($payload['ip_address']) ? trim((string)$payload['ip_address']) : $remote_ip;
+        $user_agent = !empty($payload['user_agent']) ? trim((string)$payload['user_agent']) : $this->input->user_agent();
+        $login_at   = !empty($payload['login_at']) ? trim((string)$payload['login_at']) : date('Y-m-d H:i:s');
+
+        if ($username === '') {
+            return $this->output
+                ->set_status_header(400)
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'status'  => false,
+                    'message' => 'Parameter username wajib diisi.',
+                ]));
+        }
+
+        $app = $this->Login_log_model->resolve_app($app_id, $app_code);
+        if (!$app) {
+            return $this->output
+                ->set_status_header(404)
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'status'  => false,
+                    'message' => 'Aplikasi tidak ditemukan di portal.',
+                ]));
+        }
+
+        $log_id = $this->Login_log_model->record_login([
+            'app_id'     => $app->id,
+            'user_id'    => $user_id,
+            'username'   => $username,
+            'full_name'  => $full_name,
+            'ip_address' => $ip_address,
+            'user_agent' => $user_agent,
+            'login_at'   => $login_at,
+        ]);
+
+        return $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'status'   => true,
+                'message'  => 'Login berhasil dicatat.',
+                'log_id'   => $log_id,
+                'app_id'   => (int)$app->id,
+                'app_name' => $app->name,
+            ]));
+    }
+
+    public function stats_ajax() {
+        if ($this->require_login() !== true) return;
+
+        $app_id = (int)$this->input->get('app_id', TRUE);
+        $period = $this->input->get('period', TRUE) ?: 'month';
+        if (!in_array($period, ['week', 'month', 'year', 'all'], true)) {
+            $period = 'month';
+        }
+
+        $app = $app_id > 0 ? $this->App_model->get_by_id($app_id) : null;
+        if ($app_id > 0 && !$app) {
+            return $this->output
+                ->set_status_header(404)
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'status'  => false,
+                    'message' => 'Aplikasi tidak ditemukan.',
+                ]));
+        }
+
+        return $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'status'     => true,
+                'period'     => $period,
+                'app'        => $app,
+                'summary'    => $this->Login_log_model->get_summary($app_id),
+                'user_stats' => $this->Login_log_model->get_user_stats($app_id, $period, 50),
+                'history'    => $this->Login_log_model->get_login_history($app_id, $period, 100),
+            ]));
+    }
+
+    public function analytics() {
+        if ($this->require_login() !== true) return;
+
+        $app_id = (int)$this->input->get('app_id', TRUE);
+        $period = $this->input->get('period', TRUE) ?: 'month';
+        if (!in_array($period, ['week', 'month', 'year', 'all'], true)) {
+            $period = 'month';
+        }
+
+        $data['apps']            = $this->App_model->get_all();
+        $data['selected_app']    = $app_id > 0 ? $this->App_model->get_by_id($app_id) : null;
+        $data['selected_app_id'] = $app_id;
+        $data['selected_period'] = $period;
+        $data['summary']         = $this->Login_log_model->get_summary($app_id);
+        $data['app_comparison']  = $this->Login_log_model->get_app_comparison_stats();
+        $data['user_stats']      = $this->Login_log_model->get_user_stats($app_id, $period, 50);
+        $data['history']         = $this->Login_log_model->get_login_history($app_id, $period, 100);
+        $data['api_settings']    = $this->Login_log_model->get_api_settings();
+        $data['logged_in']       = true;
+        $data['current_user']    = $this->session->userdata('username');
+
+        $this->load->view('portal/analytics', $data);
+    }
+
+    // -------------------------------------------------------
+    // API SETTINGS (ADMIN ONLY)
+    // -------------------------------------------------------
+    public function api_settings() {
+        if ($this->require_login() !== true) return;
+
+        $data['api_settings'] = $this->Login_log_model->get_api_settings();
+        $data['apps']         = $this->App_model->get_all();
+        $data['logged_in']    = true;
+        $data['current_user'] = $this->session->userdata('username');
+
+        $this->load->view('portal/api_settings', $data);
+    }
+
+    public function api_settings_save() {
+        if ($this->require_login() !== true) return;
+
+        if ($this->input->server('REQUEST_METHOD') !== 'POST') {
+            redirect(site_url('index.php/api_settings'));
+        }
+
+        $api_endpoint_url = trim((string)$this->input->post('api_endpoint_url', TRUE));
+        $api_key          = trim((string)$this->input->post('api_key', TRUE));
+        $api_enabled      = $this->input->post('api_enabled') ? '1' : '0';
+
+        if ($api_endpoint_url === '' || !filter_var($api_endpoint_url, FILTER_VALIDATE_URL)) {
+            $msg = 'URL Endpoint API tidak valid. Gunakan format http://... atau https://...';
+            if ($this->input->is_ajax_request()) {
+                return $this->output
+                    ->set_content_type('application/json')
+                    ->set_output(json_encode(['status' => false, 'message' => $msg]));
+            }
+            $this->session->set_flashdata('error', $msg);
+            redirect(site_url('index.php/api_settings'));
+        }
+
+        if (strlen($api_key) < 6) {
+            $msg = 'API Key minimal 6 karakter.';
+            if ($this->input->is_ajax_request()) {
+                return $this->output
+                    ->set_content_type('application/json')
+                    ->set_output(json_encode(['status' => false, 'message' => $msg]));
+            }
+            $this->session->set_flashdata('error', $msg);
+            redirect(site_url('index.php/api_settings'));
+        }
+
+        $saved = $this->Login_log_model->save_api_settings([
+            'api_endpoint_url' => $api_endpoint_url,
+            'api_key'          => $api_key,
+            'api_enabled'      => $api_enabled,
+        ]);
+
+        if ($saved) {
+            if ($this->input->is_ajax_request()) {
+                return $this->output
+                    ->set_content_type('application/json')
+                    ->set_output(json_encode([
+                        'status'  => true,
+                        'message' => 'Pengaturan Link API berhasil disimpan.',
+                        'data'    => $this->Login_log_model->get_api_settings(),
+                    ]));
+            }
+            $this->session->set_flashdata('success', 'Pengaturan Link API berhasil disimpan.');
+        } else {
+            if ($this->input->is_ajax_request()) {
+                return $this->output
+                    ->set_content_type('application/json')
+                    ->set_output(json_encode([
+                        'status'  => false,
+                        'message' => 'Gagal menyimpan pengaturan Link API.',
+                    ]));
+            }
+            $this->session->set_flashdata('error', 'Gagal menyimpan pengaturan Link API.');
+        }
+
+        redirect(site_url('index.php/api_settings'));
     }
 
     // -------------------------------------------------------

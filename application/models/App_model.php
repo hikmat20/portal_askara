@@ -65,4 +65,23 @@ class App_model extends CI_Model {
         $this->db->where('id', $id);
         return $this->db->delete($this->table);
     }
+
+    // --- HELPERS ---
+    public function generate_app_code($name, $url, $custom_code = '') {
+        $raw = trim((string)$custom_code);
+        if ($raw === '') {
+            $path = parse_url((string)$url, PHP_URL_PATH);
+            $segments = array_values(array_filter(explode('/', trim((string)$path, '/'))));
+            if (!empty($segments)) {
+                $raw = end($segments);
+            }
+        }
+        if ($raw === '') {
+            $raw = (string)$name;
+        }
+        $slug = strtolower(trim($raw));
+        $slug = preg_replace('/[^a-z0-9\-_]+/', '-', $slug);
+        $slug = trim($slug, '-');
+        return $slug !== '' ? $slug : 'app';
+    }
 }
