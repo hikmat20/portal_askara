@@ -46,6 +46,12 @@
         <!-- Theme Toggle -->
         <div class="d-flex align-items-center gap-2">
           <?php if (!empty($logged_in)): ?>
+            <a href="<?= site_url('index.php/analytics') ?>" class="btn btn-sm" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" title="Statistik Login">
+              <i class="bi bi-bar-chart-line-fill me-1 text-info"></i><span class="d-none d-sm-inline">Statistik</span>
+            </a>
+            <a href="<?= site_url('index.php/api_settings') ?>" class="btn btn-sm" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" title="Pengaturan Link API">
+              <i class="bi bi-link-45deg me-1 text-success"></i><span class="d-none d-sm-inline">Link API</span>
+            </a>
             <a href="<?= site_url('index.php/users') ?>" class="btn btn-sm" style="border-radius:8px;padding:6px 10px;background:var(--bg-elevated);border:1px solid var(--border-color);color:var(--text-primary);" title="Kelola User">
               <i class="bi bi-people-fill"></i>
             </a>
@@ -93,6 +99,20 @@
             <i class="bi bi-circle-fill text-success" style="font-size:.55rem;"></i>
             <strong><?= $active_count ?></strong> aktif
           </span>
+          <?php if (!empty($logged_in) && !empty($portal_summary)): ?>
+            <a href="<?= site_url('index.php/analytics?period=week') ?>" class="stat-pill text-decoration-none" title="Lihat detail statistik login minggu ini">
+              <i class="bi bi-calendar-week text-info"></i>
+              Minggu ini: <strong><?= number_format($portal_summary->week_count, 0, ',', '.') ?></strong> login
+            </a>
+            <a href="<?= site_url('index.php/analytics?period=month') ?>" class="stat-pill text-decoration-none" title="Lihat detail statistik login bulan ini">
+              <i class="bi bi-calendar-month text-primary"></i>
+              Bulan ini: <strong><?= number_format($portal_summary->month_count, 0, ',', '.') ?></strong> login
+            </a>
+            <a href="<?= site_url('index.php/analytics?period=year') ?>" class="stat-pill text-decoration-none" title="Lihat detail statistik login tahun ini">
+              <i class="bi bi-calendar-check text-warning"></i>
+              Tahun ini: <strong><?= number_format($portal_summary->year_count, 0, ',', '.') ?></strong> login
+            </a>
+          <?php endif; ?>
         </div>
       </div>
     </div>
@@ -131,6 +151,12 @@
               <?php if (!empty($logged_in)): ?>
               <div class="card-actions" onclick="event.preventDefault();event.stopPropagation();">
                 <button
+                  class="card-action-btn btn-stats"
+                  title="Statistik Login"
+                  onclick="openStatsModal(<?= (int)$app->id ?>, <?= htmlspecialchars(json_encode($app->name), ENT_QUOTES, 'UTF-8') ?>)">
+                  <i class="bi bi-bar-chart-line"></i>
+                </button>
+                <button
                   class="card-action-btn btn-edit"
                   title="Edit"
                   onclick="openEditModal(<?= htmlspecialchars(json_encode($app)) ?>)">
@@ -164,6 +190,26 @@
               <div class="app-meta">
                 <span class="app-category-badge"><?= htmlspecialchars($app->category) ?></span>
               </div>
+
+              <?php if (!empty($logged_in)): ?>
+                <?php
+                $cnt = isset($app_counters[(int)$app->id]) ? $app_counters[(int)$app->id] : null;
+                $w_cnt = $cnt ? (int)$cnt->week_count : 0;
+                $m_cnt = $cnt ? (int)$cnt->month_count : 0;
+                $y_cnt = $cnt ? (int)$cnt->year_count : 0;
+                ?>
+                <div
+                  class="app-login-counter"
+                  title="Klik untuk melihat grafik & list user login"
+                  onclick="event.preventDefault();event.stopPropagation();openStatsModal(<?= (int)$app->id ?>, <?= htmlspecialchars(json_encode($app->name), ENT_QUOTES, 'UTF-8') ?>);">
+                  <i class="bi bi-bar-chart-line-fill"></i>
+                  <span>M: <strong><?= number_format($w_cnt, 0, ',', '.') ?></strong></span>
+                  <span class="counter-sep">&middot;</span>
+                  <span>B: <strong><?= number_format($m_cnt, 0, ',', '.') ?></strong></span>
+                  <span class="counter-sep">&middot;</span>
+                  <span>T: <strong><?= number_format($y_cnt, 0, ',', '.') ?></strong></span>
+                </div>
+              <?php endif; ?>
             </a>
 
           </div>
@@ -249,10 +295,15 @@
                 </div>
               </div>
 
-              <!-- Name -->
-              <div class="col-12">
+              <!-- Name + App Code -->
+              <div class="col-7">
                 <label class="form-label" for="inputName">Nama Aplikasi <span class="text-danger">*</span></label>
                 <input type="text" id="inputName" name="name" class="form-control" placeholder="Contoh: Slack, Jira, Figma..." required />
+              </div>
+
+              <div class="col-5">
+                <label class="form-label" for="inputAppCode">Kode Aplikasi</label>
+                <input type="text" id="inputAppCode" name="app_code" class="form-control" placeholder="Otomatis dari URL" />
               </div>
 
               <!-- URL -->
@@ -384,6 +435,172 @@
   </div>
 
 
+  <?php if (!empty($logged_in)): ?>
+  <!-- =======================================
+     MODAL — STATISTIK LOGIN APLIKASI (ADMIN ONLY)
+======================================= -->
+  <div class="modal fade" id="modalAppStats" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-line-fill text-info fs-5"></i>
+            <div>
+              <h5 class="modal-title mb-0" id="statsModalTitle">Statistik Login Aplikasi</h5>
+              <small class="text-muted" id="statsModalSubtitle">Rekap aktivitas login user</small>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <a href="<?= site_url('index.php/analytics') ?>" id="statsFullLink" class="btn btn-sm btn-outline-info">
+              <i class="bi bi-box-arrow-up-right me-1"></i>Buka Halaman Analitik
+            </a>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+        </div>
+
+        <div class="modal-body">
+          <!-- Counter Summary Cards -->
+          <div class="row g-3 mb-4">
+            <div class="col-6 col-lg-3">
+              <div class="stats-metric-card">
+                <div class="stats-metric-label">
+                  <span>Minggu Ini</span>
+                  <i class="bi bi-calendar-week text-info"></i>
+                </div>
+                <div class="stats-metric-value" id="statWeekCount">0</div>
+                <div class="stats-metric-sub" id="statWeekUsers">0 user unik</div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="stats-metric-card">
+                <div class="stats-metric-label">
+                  <span>Bulan Ini</span>
+                  <i class="bi bi-calendar-month text-primary"></i>
+                </div>
+                <div class="stats-metric-value" id="statMonthCount">0</div>
+                <div class="stats-metric-sub" id="statMonthUsers">0 user unik</div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="stats-metric-card">
+                <div class="stats-metric-label">
+                  <span>Tahun Ini</span>
+                  <i class="bi bi-calendar-check text-warning"></i>
+                </div>
+                <div class="stats-metric-value" id="statYearCount">0</div>
+                <div class="stats-metric-sub" id="statYearUsers">0 user unik</div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="stats-metric-card">
+                <div class="stats-metric-label">
+                  <span>Total Semua Waktu</span>
+                  <i class="bi bi-people-fill text-success"></i>
+                </div>
+                <div class="stats-metric-value" id="statTotalCount">0</div>
+                <div class="stats-metric-sub" id="statTotalUsers">0 user unik</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Period Filter -->
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+            <h6 class="mb-0 fw-bold" style="color:var(--text-primary);">
+              <i class="bi bi-graph-up me-2 text-info"></i>Grafik &amp; Daftar Login per User
+            </h6>
+            <div class="period-filter-group" id="statsPeriodFilter">
+              <button type="button" class="period-btn" data-period="week" onclick="changeStatsPeriod('week')">Minggu Ini</button>
+              <button type="button" class="period-btn active" data-period="month" onclick="changeStatsPeriod('month')">Bulan Ini</button>
+              <button type="button" class="period-btn" data-period="year" onclick="changeStatsPeriod('year')">Tahun Ini</button>
+              <button type="button" class="period-btn" data-period="all" onclick="changeStatsPeriod('all')">Semua</button>
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="analytics-panel mb-4">
+            <div id="statsChartLoading" class="text-center py-5 text-muted" style="display:none;">
+              <div class="spinner-border spinner-border-sm me-2" role="status"></div>Memuat data statistik...
+            </div>
+            <div id="statsChartEmpty" class="text-center py-4 text-muted" style="display:none;">
+              <i class="bi bi-bar-chart d-block fs-3 mb-2 opacity-50"></i>
+              <span>Belum ada data login pada periode yang dipilih.</span>
+            </div>
+            <div class="chart-container-box" id="statsChartWrapper">
+              <canvas id="userLoginChart"></canvas>
+            </div>
+          </div>
+
+          <!-- List Tabs -->
+          <ul class="nav nav-pills analytics-nav-tabs gap-2 mb-3" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabUserStats" type="button" role="tab">
+                <i class="bi bi-person-lines-fill me-1"></i>Rekap per User
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabLoginHistory" type="button" role="tab">
+                <i class="bi bi-clock-history me-1"></i>Riwayat Waktu Login
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="tabUserStats" role="tabpanel">
+              <div class="table-responsive" style="border:1px solid var(--border-color);border-radius:10px;">
+                <table class="table table-hover analytics-table mb-0 align-middle">
+                  <thead>
+                    <tr>
+                      <th class="ps-3">#</th>
+                      <th>Username</th>
+                      <th>Nama Lengkap</th>
+                      <th class="text-end">Minggu Ini</th>
+                      <th class="text-end">Bulan Ini</th>
+                      <th class="text-end">Tahun Ini</th>
+                      <th class="text-end">Total</th>
+                      <th class="pe-3">Login Terakhir</th>
+                    </tr>
+                  </thead>
+                  <tbody id="statsUserTableBody">
+                    <tr>
+                      <td colspan="8" class="text-center py-4 text-muted">Memuat data...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tab-pane fade" id="tabLoginHistory" role="tabpanel">
+              <div class="table-responsive" style="border:1px solid var(--border-color);border-radius:10px;">
+                <table class="table table-hover analytics-table mb-0 align-middle">
+                  <thead>
+                    <tr>
+                      <th class="ps-3">#</th>
+                      <th>Waktu Login</th>
+                      <th>Username</th>
+                      <th>Nama Lengkap</th>
+                      <th class="pe-3">IP Address</th>
+                    </tr>
+                  </thead>
+                  <tbody id="statsHistoryTableBody">
+                    <tr>
+                      <td colspan="5" class="text-center py-4 text-muted">Memuat data...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" data-bs-dismiss="modal">Tutup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
+
+
   <!-- =======================================
      TOAST CONTAINER
 ======================================= -->
@@ -438,6 +655,7 @@
       form.action = '<?= site_url('index.php/apps/store') ?>';
       form.reset();
       document.getElementById('formAppId').value = '';
+      document.getElementById('inputAppCode').value = '';
       document.getElementById('logoPreviewImg').style.display = 'none';
       document.getElementById('logoPlaceholderIcon').style.display = '';
       document.getElementById('removeLogoWrap').style.display = 'none';
@@ -457,6 +675,7 @@
 
       document.getElementById('formAppId').value = app.id;
       document.getElementById('inputName').value = app.name;
+      document.getElementById('inputAppCode').value = app.app_code || '';
       document.getElementById('inputUrl').value = app.url;
       document.getElementById('inputDesc').value = app.description || '';
       document.getElementById('inputCategory').value = app.category || '';
@@ -503,6 +722,7 @@
       form.action = '<?= site_url('index.php/apps/store') ?>';
       form.reset();
       document.getElementById('formAppId').value = '';
+      document.getElementById('inputAppCode').value = '';
       document.getElementById('logoPreviewImg').style.display = 'none';
       document.getElementById('logoPlaceholderIcon').style.display = '';
       document.getElementById('removeLogoWrap').style.display = 'none';
@@ -715,6 +935,9 @@
         html.setAttribute('data-bs-theme', newTheme);
         localStorage.setItem('theme', newTheme);
         updateThemeIcon(newTheme);
+        if (typeof refreshStatsChartTheme === 'function') {
+          refreshStatsChartTheme();
+        }
       });
 
       function updateThemeIcon(theme) {
@@ -728,6 +951,228 @@
       }
     });
   </script>
+
+  <?php if (!empty($logged_in)): ?>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    let currentStatsAppId = 0;
+    let currentStatsPeriod = 'month';
+    let currentStatsData = null;
+    let userLoginChartInstance = null;
+
+    function formatIdNumber(val) {
+      return new Intl.NumberFormat('id-ID').format(Number(val) || 0);
+    }
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function openStatsModal(appId, appName) {
+      currentStatsAppId = appId;
+      currentStatsPeriod = 'month';
+
+      document.getElementById('statsModalTitle').textContent = 'Statistik Login — ' + appName;
+      document.getElementById('statsModalSubtitle').textContent = 'Counter per minggu, bulan, tahun, dan grafik per user';
+      document.getElementById('statsFullLink').href = '<?= site_url('index.php/analytics') ?>?app_id=' + encodeURIComponent(appId);
+
+      updatePeriodFilterButtons('month');
+      const modalEl = document.getElementById('modalAppStats');
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+      loadAppStats(appId, 'month');
+    }
+
+    function changeStatsPeriod(period) {
+      currentStatsPeriod = period;
+      updatePeriodFilterButtons(period);
+      if (currentStatsAppId > 0) {
+        loadAppStats(currentStatsAppId, period);
+      }
+    }
+
+    function updatePeriodFilterButtons(period) {
+      document.querySelectorAll('#statsPeriodFilter .period-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.period === period);
+      });
+    }
+
+    async function loadAppStats(appId, period) {
+      const loadingEl = document.getElementById('statsChartLoading');
+      const emptyEl = document.getElementById('statsChartEmpty');
+      const wrapperEl = document.getElementById('statsChartWrapper');
+
+      loadingEl.style.display = 'block';
+      emptyEl.style.display = 'none';
+      wrapperEl.style.display = 'none';
+
+      try {
+        const url = '<?= site_url('index.php/stats_ajax') ?>?app_id=' + encodeURIComponent(appId) + '&period=' + encodeURIComponent(period);
+        const response = await fetch(url, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await response.json();
+
+        loadingEl.style.display = 'none';
+
+        if (!data.status) {
+          showToast(data.message || 'Gagal memuat statistik.', 'error');
+          return;
+        }
+
+        currentStatsData = data;
+        const summary = data.summary || {};
+
+        document.getElementById('statWeekCount').textContent = formatIdNumber(summary.week_count);
+        document.getElementById('statMonthCount').textContent = formatIdNumber(summary.month_count);
+        document.getElementById('statYearCount').textContent = formatIdNumber(summary.year_count);
+        document.getElementById('statTotalCount').textContent = formatIdNumber(summary.total_count);
+
+        document.getElementById('statWeekUsers').textContent = formatIdNumber(summary.unique_users_week) + ' user unik';
+        document.getElementById('statMonthUsers').textContent = formatIdNumber(summary.unique_users_month) + ' user unik';
+        document.getElementById('statYearUsers').textContent = formatIdNumber(summary.unique_users_year) + ' user unik';
+        document.getElementById('statTotalUsers').textContent = formatIdNumber(summary.unique_users_total) + ' user unik';
+
+        renderUserLoginChart(data.user_stats || [], period);
+        renderUserStatsTable(data.user_stats || []);
+        renderLoginHistoryTable(data.history || []);
+      } catch (err) {
+        loadingEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+        showToast('Gagal memuat statistik login.', 'error');
+        console.error(err);
+      }
+    }
+
+    function getChartPalette() {
+      const isLight = document.documentElement.getAttribute('data-bs-theme') === 'light';
+      return {
+        text: isLight ? '#5f6368' : '#8b949e',
+        grid: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
+        barBg: isLight ? 'rgba(26, 115, 232, 0.78)' : 'rgba(88, 166, 255, 0.78)',
+        barBorder: isLight ? '#1a73e8' : '#58a6ff'
+      };
+    }
+
+    function renderUserLoginChart(userStats, period) {
+      const emptyEl = document.getElementById('statsChartEmpty');
+      const wrapperEl = document.getElementById('statsChartWrapper');
+      const activeUsers = userStats.filter(u => (Number(u.period_count) || 0) > 0).slice(0, 15);
+
+      if (userLoginChartInstance) {
+        userLoginChartInstance.destroy();
+        userLoginChartInstance = null;
+      }
+
+      if (activeUsers.length === 0) {
+        wrapperEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      wrapperEl.style.display = 'block';
+
+      const labels = activeUsers.map(u => {
+        const display = u.full_name && u.full_name !== u.username ? u.full_name + ' (' + u.username + ')' : u.username;
+        return display;
+      });
+      const counts = activeUsers.map(u => Number(u.period_count) || 0);
+      const palette = getChartPalette();
+      const periodLabels = { week: 'Minggu Ini', month: 'Bulan Ini', year: 'Tahun Ini', all: 'Semua Waktu' };
+
+      const ctx = document.getElementById('userLoginChart').getContext('2d');
+      userLoginChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Jumlah Login (' + (periodLabels[period] || 'Bulan Ini') + ')',
+            data: counts,
+            backgroundColor: palette.barBg,
+            borderColor: palette.barBorder,
+            borderWidth: 1,
+            borderRadius: 6,
+            maxBarThickness: 44
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: palette.text }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: palette.text },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: palette.text,
+                precision: 0
+              },
+              grid: { color: palette.grid }
+            }
+          }
+        }
+      });
+    }
+
+    function refreshStatsChartTheme() {
+      if (currentStatsData && document.getElementById('modalAppStats').classList.contains('show')) {
+        renderUserLoginChart(currentStatsData.user_stats || [], currentStatsPeriod);
+      }
+    }
+
+    function renderUserStatsTable(rows) {
+      const tbody = document.getElementById('statsUserTableBody');
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada data user yang login.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map((u, idx) => `
+        <tr>
+          <td class="ps-3">${idx + 1}</td>
+          <td class="fw-semibold">${escapeHtml(u.username)}</td>
+          <td>${escapeHtml(u.full_name || '-')}</td>
+          <td class="text-end">${formatIdNumber(u.week_count)}</td>
+          <td class="text-end">${formatIdNumber(u.month_count)}</td>
+          <td class="text-end">${formatIdNumber(u.year_count)}</td>
+          <td class="text-end fw-bold">${formatIdNumber(u.total_count)}</td>
+          <td class="pe-3 text-muted small">${escapeHtml(u.last_login_at || '-')}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderLoginHistoryTable(rows) {
+      const tbody = document.getElementById('statsHistoryTableBody');
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Belum ada riwayat login pada periode ini.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map((h, idx) => `
+        <tr>
+          <td class="ps-3">${idx + 1}</td>
+          <td class="small">${escapeHtml(h.login_at)}</td>
+          <td class="fw-semibold">${escapeHtml(h.username)}</td>
+          <td>${escapeHtml(h.full_name || '-')}</td>
+          <td class="pe-3 small text-muted">${escapeHtml(h.ip_address || '-')}</td>
+        </tr>
+      `).join('');
+    }
+  </script>
+  <?php endif; ?>
 
 </body>
 

@@ -23,3 +23,10 @@ $route['users']         = 'Portal/users';
 $route['users/store']   = 'Portal/user_store';
 $route['users/update']  = 'Portal/user_update';
 $route['users/delete']  = 'Portal/user_delete';
+
+// Login Counter & Analytics Routes
+$route['api/log_login']    = 'Portal/api_log_login';
+$route['stats_ajax']       = 'Portal/stats_ajax';
+$route['analytics']        = 'Portal/analytics';
+$route['api_settings']     = 'Portal/api_settings';
+$route['api_settings/save'] = 'Portal/api_settings_save';
